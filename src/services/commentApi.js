@@ -14,6 +14,7 @@ export async function getCommentList({
 export async function postComment({
   postId,
   commentBody,
+  parentCommentId = null,
 }) {
   return request(
     `/api/posts/${postId}/comments`,
@@ -21,6 +22,7 @@ export async function postComment({
       method: "POST",
       body: {
         commentBody,
+        parentCommentId,
       },
     },
   );

@@ -15,8 +15,10 @@ export async function postUpload({
   });
 }
 
-export async function getPostList() {
-  return request("/api/posts", {
+export async function getPostList({
+  page = 0,
+} = {}) {
+  return request(`/api/posts?page=${page}`, {
     method: "GET",
   });
 }

@@ -1,24 +1,28 @@
 import { useRef, useState } from "react";
 
-import { deleteComment,modifyComment } from "../../services/commentApi.js";
+import { deleteComment, modifyComment } from "../../services/commentApi.js";
 import { formatDateTime } from "../../utils/format.js";
 import { MultilineText, ProfileImage } from "./PostDetailPrimitives.jsx";
 import { getRequestErrorMessage } from "./postDetailUtils.js";
 
 export default function CommentItem({
   item,
+  depth = 0,
   postId,
   currentUserNickname,
   isRequestCurrent,
+  isReplyFormOpen,
+  isReplyActionDisabled,
   onReloadComments,
   onPageMessage,
+  onToggleReply,
 }) {
   const author = item.author || {};
   const comment = item.comment || {};
-  const [isEditing, setIsEditing] = useState(false);
-  const [editBody, setEditBody] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [ isEditing, setIsEditing ] = useState(false);
+  const [ editBody, setEditBody ] = useState("");
+  const [ isSaving, setIsSaving ] = useState(false);
+  const [ isDeleting, setIsDeleting ] = useState(false);
   const saveLockRef = useRef(false);
   const deleteLockRef = useRef(false);
   const isOwner = (
@@ -26,6 +30,9 @@ export default function CommentItem({
   );
   const isDeleted = comment.deleted === true;
   const canModify = isOwner && !isDeleted;
+  const isCurrentReplySubmitting = (
+    isReplyFormOpen && isReplyActionDisabled
+  );
 
   function handleEdit() {
     setEditBody(comment.commentBody || "");
@@ -126,10 +133,19 @@ export default function CommentItem({
     <article
       className={
         `comment-item${
+          depth > 0 ? " is-reply" : ""
+        }${
           isDeleted ? " is-deleted" : ""
         }`
       }
+      style={{
+        "--comment-depth": Math.min(depth, 4),
+      }}
       data-comment-id={comment.commentId ?? ""}
+      data-parent-comment-id={
+        comment.parentCommentId ?? ""
+      }
+      data-comment-depth={depth}
     >
       <header className="comment-header">
         <div className="comment-author">
@@ -148,24 +164,50 @@ export default function CommentItem({
           </div>
         </div>
 
-        {canModify && !isEditing ? (
+        {!isDeleted ? (
           <div className="comment-actions">
             <button
-              className="comment-edit-button"
+              className="comment-reply-button secondary-button"
               type="button"
-              disabled={isDeleting}
-              onClick={handleEdit}
+              aria-expanded={isReplyFormOpen}
+              disabled={
+                isDeleting ||
+                isSaving ||
+                isReplyActionDisabled
+              }
+              onClick={() => {
+                onToggleReply(comment.commentId);
+              }}
             >
-              수정
+              답글
             </button>
-            <button
-              className="comment-delete-button"
-              type="button"
-              disabled={isDeleting}
-              onClick={handleDeleteComment}
-            >
-              삭제
-            </button>
+
+            {canModify && !isEditing ? (
+              <>
+                <button
+                  className="comment-edit-button"
+                  type="button"
+                  disabled={
+                    isDeleting ||
+                    isCurrentReplySubmitting
+                  }
+                  onClick={handleEdit}
+                >
+                  수정
+                </button>
+                <button
+                  className="comment-delete-button"
+                  type="button"
+                  disabled={
+                    isDeleting ||
+                    isCurrentReplySubmitting
+                  }
+                  onClick={handleDeleteComment}
+                >
+                  삭제
+                </button>
+              </>
+            ) : null}
           </div>
         ) : null}
       </header>
@@ -185,7 +227,10 @@ export default function CommentItem({
             <button
               className="comment-save-button"
               type="button"
-              disabled={isSaving}
+              disabled={
+                isSaving ||
+                isCurrentReplySubmitting
+              }
               onClick={handleSaveComment}
             >
               저장

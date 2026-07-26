@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useForm } from "../../hooks/useForm.js";
 import { postComment } from "../../services/commentApi.js";
 import { formatCount } from "../../utils/format.js";
-import CommentItem from "./CommentItem.jsx";
+import CommentTreeItem from "./CommentTreeItem.jsx";
+import { buildCommentTree } from "./commentTree.js";
 import { getRequestErrorMessage } from "./postDetailUtils.js";
 
 const commentBodyRules = {
@@ -11,6 +12,16 @@ const commentBodyRules = {
     message: "댓글 내용을 입력해주세요.",
   },
 };
+
+function isSameCommentId(leftId, rightId) {
+  return (
+    leftId !== null &&
+    leftId !== undefined &&
+    rightId !== null &&
+    rightId !== undefined &&
+    String(leftId) === String(rightId)
+  );
+}
 
 export default function CommentSection({
   comments,
@@ -23,18 +34,69 @@ export default function CommentSection({
   onPageMessage,
   onReloadComments,
 }) {
-  const [commentBody, setCommentBody] = useState("");
-  const {
-    formRef,
-    register,
-    handleSubmit,
-    errors,
-    isSubmitting,
-  } = useForm({
+  const [ commentBody, setCommentBody ] = useState("");
+  const [ activeReplyCommentId, setActiveReplyCommentId ] = useState(null);
+  const commentTree = useMemo(
+    () => buildCommentTree(comments),
+    [comments],
+  );
+  const commentForm = useForm({
     defaultValues: {
       commentBody: "",
     },
   });
+  const replyForm = useForm({
+    defaultValues: {
+      commentBody: "",
+    },
+  });
+  const replyFormRef = replyForm.formRef;
+  const resetReplyForm = replyForm.reset;
+
+  useEffect(() => {
+    if (
+      activeReplyCommentId === null ||
+      comments === null
+    ) {
+      return;
+    }
+
+    const activeReplyItem = Array.isArray(comments)
+      ? comments.find((item) => (
+          isSameCommentId(
+            item?.comment?.commentId,
+            activeReplyCommentId,
+          )
+        ))
+      : null;
+
+    if (
+      activeReplyItem &&
+      activeReplyItem.comment?.deleted !== true
+    ) {
+      return;
+    }
+
+    resetReplyForm();
+    setActiveReplyCommentId(null);
+  }, [
+    activeReplyCommentId,
+    comments,
+    resetReplyForm,
+  ]);
+
+  useEffect(() => {
+    if (activeReplyCommentId === null) {
+      return;
+    }
+
+    replyFormRef.current?.elements
+      .namedItem("commentBody")
+      ?.focus();
+  }, [
+    activeReplyCommentId,
+    replyFormRef,
+  ]);
 
   function handleCommentBodyChange(event) {
     setCommentBody(event.target.value);
@@ -44,7 +106,7 @@ export default function CommentSection({
     nextErrors,
   ) {
     if (nextErrors.commentBody) {
-      formRef.current?.elements
+      commentForm.formRef.current?.elements
         .namedItem("commentBody")
         ?.focus();
     }
@@ -57,6 +119,7 @@ export default function CommentSection({
       await postComment({
         postId,
         commentBody: rawValues.commentBody.trim(),
+        parentCommentId: null,
       });
 
       if (!isRequestCurrent()) {
@@ -78,7 +141,86 @@ export default function CommentSection({
     }
   }
 
-  const commentBodyField = register(
+  function handleInvalidReplySubmit(nextErrors) {
+    if (nextErrors.commentBody) {
+      replyForm.formRef.current?.elements
+        .namedItem("commentBody")
+        ?.focus();
+    }
+  }
+
+  async function submitReply(rawValues) {
+    const targetCommentId = activeReplyCommentId;
+
+    if (targetCommentId === null) {
+      return;
+    }
+
+    try {
+      await postComment({
+        postId,
+        commentBody: rawValues.commentBody.trim(),
+        parentCommentId: targetCommentId,
+      });
+
+      if (!isRequestCurrent()) {
+        return;
+      }
+
+      const didReload = await onReloadComments();
+
+      if (
+        didReload === false ||
+        !isRequestCurrent()
+      ) {
+        return;
+      }
+
+      onIncreaseCommentCount();
+      replyForm.reset();
+      setActiveReplyCommentId((currentId) => (
+        isSameCommentId(
+          currentId,
+          targetCommentId,
+        )
+          ? null
+          : currentId
+      ));
+    } catch (error) {
+      if (isRequestCurrent()) {
+        replyForm.setFormError(
+          getRequestErrorMessage(error),
+        );
+      }
+    }
+  }
+
+  function handleToggleReply(commentId) {
+    if (replyForm.isSubmitting) {
+      return;
+    }
+
+    const isCurrentTarget = isSameCommentId(
+      activeReplyCommentId,
+      commentId,
+    );
+
+    replyForm.reset();
+    setActiveReplyCommentId(
+      isCurrentTarget ? null : commentId,
+    );
+  }
+
+  function handleCancelReply() {
+    if (replyForm.isSubmitting) {
+      return;
+    }
+
+    replyForm.reset();
+    setActiveReplyCommentId(null);
+  }
+
+  const commentBodyField = commentForm.register(
     "commentBody",
     commentBodyRules,
     {
@@ -87,9 +229,91 @@ export default function CommentSection({
       onChange: handleCommentBodyChange,
     },
   );
-  const message = (
-    errors.commentBody || pageMessage
+  const replyBodyField = replyForm.register(
+    "commentBody",
+    commentBodyRules,
   );
+  const message = (
+    commentForm.errors.commentBody ||
+    pageMessage
+  );
+  const replyMessage = (
+    replyForm.errors.commentBody ||
+    replyForm.formError
+  );
+
+  function renderReplyForm({ item, depth }) {
+    const comment = item.comment || {};
+
+    if (
+      comment.deleted === true ||
+      !isSameCommentId(
+        comment.commentId,
+        activeReplyCommentId,
+      )
+    ) {
+      return null;
+    }
+
+    const textareaId = (
+      `replyCommentBody-${comment.commentId}`
+    );
+    const targetNickname = (
+      item.author?.nickname || "알 수 없음"
+    );
+
+    return (
+      <form
+        key={comment.commentId}
+        ref={replyForm.formRef}
+        className="comment-reply-form"
+        style={{
+          "--comment-depth": Math.min(depth, 4),
+        }}
+        noValidate
+        onSubmit={replyForm.handleSubmit(
+          submitReply,
+          handleInvalidReplySubmit,
+        )}
+      >
+        <label htmlFor={textareaId}>
+          {targetNickname}님에게 답글 작성
+        </label>
+
+        <textarea
+          id={textareaId}
+          placeholder="댓글을 남겨주세요"
+          required
+          {...replyBodyField}
+        />
+
+        <p
+          className={replyMessage
+            ? "helper-text error"
+            : "helper-text"}
+        >
+          {replyMessage || ""}
+        </p>
+
+        <div className="comment-reply-actions">
+          <button
+            type="submit"
+            disabled={replyForm.isSubmitting}
+          >
+            답글 등록
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={replyForm.isSubmitting}
+            onClick={handleCancelReply}
+          >
+            취소
+          </button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <>
@@ -101,10 +325,10 @@ export default function CommentSection({
 
         <form
           id="commentForm"
-          ref={formRef}
+          ref={commentForm.formRef}
           className="post-comment-form"
           noValidate
-          onSubmit={handleSubmit(
+          onSubmit={commentForm.handleSubmit(
             submitComment,
             handleInvalidCommentSubmit,
           )}
@@ -121,7 +345,7 @@ export default function CommentSection({
             type="submit"
             disabled={
               !commentBody.trim() ||
-              isSubmitting
+              commentForm.isSubmitting
             }
           >
             댓글 등록
@@ -147,14 +371,19 @@ export default function CommentSection({
 
         <div id="commentList">
           {comments === null ? null : (
-            comments.length > 0 ? (
-              comments.map((item, index) => (
-                <CommentItem
-                  key={
-                    item.comment?.commentId ??
-                    index
+            commentTree.length > 0 ? (
+              commentTree.map((node) => (
+                <CommentTreeItem
+                  key={node.item.comment.commentId}
+                  node={node}
+                  depth={0}
+                  ancestorCommentIds={new Set()}
+                  activeReplyCommentId={
+                    activeReplyCommentId
                   }
-                  item={item}
+                  isReplyActionDisabled={
+                    replyForm.isSubmitting
+                  }
                   postId={postId}
                   currentUserNickname={
                     currentUserNickname
@@ -166,6 +395,12 @@ export default function CommentSection({
                     onReloadComments
                   }
                   onPageMessage={onPageMessage}
+                  onToggleReply={
+                    handleToggleReply
+                  }
+                  renderReplyForm={
+                    renderReplyForm
+                  }
                 />
               ))
             ) : (
