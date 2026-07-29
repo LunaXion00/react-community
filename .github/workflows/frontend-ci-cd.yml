@@ -1,6 +1,10 @@
-name: Frontend Image Publish
+name: Frontend CI/CD
 
 on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -16,10 +20,11 @@ env:
   ECR_REPOSITORY: ${{ vars.FRONTEND_ECR_REPOSITORY }}
 
 jobs:
-  build-test-and-push:
-    if: github.ref == 'refs/heads/main'
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -39,6 +44,16 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  build-test-and-push:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.1.0
