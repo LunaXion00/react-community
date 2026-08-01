@@ -33,9 +33,7 @@ export default function PostDetailPage({
     loginUserRef.current = getLoginUser();
   }
 
-  const currentUserNickname = (
-    loginUserRef.current.nickname
-  );
+  const currentUserId = loginUserRef.current.userId;
   const [postDetailState, setPostDetailState] = (
     useState({
       visit: null,
@@ -563,9 +561,7 @@ export default function PostDetailPage({
           <>
             <PostArticle
               postDetail={postDetail}
-              currentUserNickname={
-                currentUserNickname
-              }
+              currentUserId={currentUserId}
               isLikePending={isLikePending}
               isDeletingPost={isDeletingPost}
               onLike={handleLike}
@@ -584,9 +580,7 @@ export default function PostDetailPage({
               commentCount={
                 postDetail.meta?.comments
               }
-              currentUserNickname={
-                currentUserNickname
-              }
+              currentUserId={currentUserId}
               postId={postId}
               pageMessage={pageMessage}
               pendingCommentCount={pendingCommentIds.size}

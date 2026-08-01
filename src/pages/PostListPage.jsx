@@ -11,6 +11,9 @@ import { requireLogin } from "../utils/auth.js";
 import { formatCount, formatDateTime } from "../utils/format.js";
 
 const PAGE_QUERY_PATTERN = /^[1-9]\d*$/;
+const INVALID_POST_LIST_MESSAGE = (
+  "게시글 목록을 불러오지 못했습니다."
+);
 
 function parsePageQuery(pageQuery) {
   if (
@@ -25,6 +28,24 @@ function parsePageQuery(pageQuery) {
   return Number.isSafeInteger(page)
     ? page
     : null;
+}
+
+function getPostListData(result) {
+  const data = result?.data;
+
+  if (
+    result === null ||
+    typeof result !== "object" ||
+    Array.isArray(result) ||
+    data === null ||
+    typeof data !== "object" ||
+    Array.isArray(data) ||
+    !Array.isArray(data.posts)
+  ) {
+    return null;
+  }
+
+  return data;
 }
 
 function getPaginationItems(
@@ -306,6 +327,7 @@ export default function PostListPage({
         isRefresh: Boolean(
           refreshRequest || redirectRefresh,
         ),
+        completed: false,
       };
       postListRequestRef.current = requestInfo;
     }
@@ -327,13 +349,38 @@ export default function PostListPage({
           return;
         }
 
+        if (requestInfo.completed) {
+          return;
+        }
+
+        requestInfo.completed = true;
+
+        const postListData = getPostListData(result);
+
+        if (postListData === null) {
+          setPosts(null);
+          setPageInfo(null);
+          setErrorMessage(INVALID_POST_LIST_MESSAGE);
+
+          if (requestInfo.isRefresh) {
+            refreshCompleteRef.current?.(
+              requestInfo.refreshNonce,
+            );
+            setIsRefreshingPosts(false);
+          }
+          return;
+        }
+
         const {
-          posts: nextPosts,
+          posts: responsePosts,
           page,
           size,
           totalElements,
           totalPages,
         } = result.data;
+        const nextPosts = Array.isArray(responsePosts)
+          ? responsePosts
+          : [];
 
         if (
           nextPosts.length === 0 &&
@@ -397,6 +444,11 @@ export default function PostListPage({
           isActive &&
           postListRequestRef.current === requestInfo
         ) {
+          if (requestInfo.completed) {
+            return;
+          }
+
+          requestInfo.completed = true;
           setPageInfo(null);
           setErrorMessage(error.message);
 
@@ -539,7 +591,11 @@ export default function PostListPage({
                 </p>
               ) : null}
             </>
-          ) : null}
+          ) : errorMessage ? null : (
+            <p className="post-list-loading">
+              게시글을 불러오는 중입니다.
+            </p>
+          )}
         </section>
 
         {shouldShowPagination ? (

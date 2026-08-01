@@ -693,7 +693,8 @@ button[type="submit"]:disabled {
   text-align: right;
 }
 
-.post-list-empty {
+.post-list-empty,
+.post-list-loading {
   margin: 0;
   padding: 32px 20px;
   color: var(--color-subtle);

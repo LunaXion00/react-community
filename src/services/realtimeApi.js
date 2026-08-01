@@ -1,5 +1,8 @@
 import { request } from "../apiClient.js";
-import { getAccessToken } from "../utils/auth.js";
+import {
+  getAccessToken,
+  handleUnauthorized,
+} from "../utils/auth.js";
 
 const EVENT_NAMES = new Set([
   "connected",
@@ -45,6 +48,10 @@ export async function connectRealtimeStream({
     },
     signal,
   });
+
+  if (response.status === 401) {
+    handleUnauthorized();
+  }
 
   if (!response.ok) {
     throw createHttpError(response.status);

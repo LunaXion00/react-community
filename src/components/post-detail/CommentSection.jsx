@@ -26,7 +26,7 @@ function isSameCommentId(leftId, rightId) {
 export default function CommentSection({
   comments,
   commentCount,
-  currentUserNickname,
+  currentUserId,
   postId,
   pageMessage,
   pendingCommentCount = 0,
@@ -393,9 +393,7 @@ export default function CommentSection({
                     replyForm.isSubmitting
                   }
                   postId={postId}
-                  currentUserNickname={
-                    currentUserNickname
-                  }
+                  currentUserId={currentUserId}
                   isRequestCurrent={
                     isRequestCurrent
                   }

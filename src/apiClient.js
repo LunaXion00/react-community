@@ -1,4 +1,7 @@
-import { getToken } from "./utils/auth.js";
+import {
+  getToken,
+  handleUnauthorized,
+} from "./utils/auth.js";
 
 export async function request(
   endpoint,
@@ -71,6 +74,10 @@ export async function request(
       ? errorData.data
       : null;
     error.body = responseBody;
+
+    if (auth && response.status === 401) {
+      handleUnauthorized();
+    }
 
     throw error;
   }
