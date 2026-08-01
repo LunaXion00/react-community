@@ -599,6 +599,16 @@ button[type="submit"]:disabled {
   margin-bottom: 20px;
 }
 
+.realtime-refresh-button {
+  width: auto;
+  margin: 0 0 16px;
+  background: var(--color-primary-soft);
+}
+
+.realtime-refresh-button:hover:not(:disabled) {
+  background: var(--color-primary);
+}
+
 #postList {
   display: block;
   background: var(--color-surface);

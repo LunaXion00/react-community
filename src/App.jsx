@@ -1,15 +1,34 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 
+import InfoModifyPage from "./pages/InfoModifyPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import SignupPage from "./pages/SignupPage.jsx";
-import PostListPage from "./pages/PostListPage.jsx";
 import PostCreatePage from "./pages/PostCreatePage.jsx";
 import PostDetailPage from "./pages/PostDetailPage.jsx";
+import PostListPage from "./pages/PostListPage.jsx";
 import PostModifyPage from "./pages/PostModifyPage.jsx";
-import InfoModifyPage from "./pages/InfoModifyPage.jsx";
 import PwModifyPage from "./pages/PwModifyPage.jsx";
+import SignupPage from "./pages/SignupPage.jsx";
+import useRealtime from "./hooks/useRealtime.js";
 
 export default function App() {
+  const location = useLocation();
+  const {
+    pendingPostIds,
+    pendingCommentIds,
+    postListRefreshRequest,
+    detailCommentsRefreshRequest,
+    onPostListRefreshRequest,
+    onPostListRefreshSuccess,
+    onPostListRefreshComplete,
+    onCommentsRefreshSuccess,
+    onCommentsRefreshComplete,
+  } = useRealtime(location.pathname, location.search);
+
   return (
     <Routes>
       <Route
@@ -29,7 +48,21 @@ export default function App() {
 
       <Route
         path="/posts"
-        element={<PostListPage />}
+        element={(
+          <PostListPage
+            pendingPostIds={pendingPostIds}
+            postListRefreshRequest={postListRefreshRequest}
+            onPostListRefreshRequest={
+              onPostListRefreshRequest
+            }
+            onPostListRefreshSuccess={
+              onPostListRefreshSuccess
+            }
+            onPostListRefreshComplete={
+              onPostListRefreshComplete
+            }
+          />
+        )}
       />
 
       <Route
@@ -39,7 +72,20 @@ export default function App() {
 
       <Route
         path="/posts/:postId"
-        element={<PostDetailPage />}
+        element={(
+          <PostDetailPage
+            pendingCommentIds={pendingCommentIds}
+            detailCommentsRefreshRequest={
+              detailCommentsRefreshRequest
+            }
+            onCommentsRefreshSuccess={
+              onCommentsRefreshSuccess
+            }
+            onCommentsRefreshComplete={
+              onCommentsRefreshComplete
+            }
+          />
+        )}
       />
 
       <Route

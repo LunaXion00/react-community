@@ -11,8 +11,14 @@ import { deletePost, getPostDetail, likePost, unlikePost } from "../services/pos
 import { getLoginUser, requireLogin } from "../utils/auth.js";
 
 const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
+const EMPTY_SET = new Set();
 
-export default function PostDetailPage() {
+export default function PostDetailPage({
+  pendingCommentIds = EMPTY_SET,
+  detailCommentsRefreshRequest = null,
+  onCommentsRefreshSuccess,
+  onCommentsRefreshComplete,
+}) {
   const navigate = useNavigate();
   const { postId } = useParams();
   const loginUserRef = useRef(undefined);
@@ -56,10 +62,24 @@ export default function PostDetailPage() {
     postRequest: undefined,
     commentRequest: undefined,
     commentRequestSequence: undefined,
+    commentPendingSnapshot: null,
   });
   const isMountedRef = useRef(false);
   const likeLockRef = useRef(false);
   const postDeleteLockRef = useRef(false);
+  const pendingCommentIdsRef = useRef(pendingCommentIds);
+  const refreshSuccessRef = useRef(onCommentsRefreshSuccess);
+  const refreshCompleteRef = useRef(onCommentsRefreshComplete);
+  const refreshCommentsRef = useRef(null);
+  const handledRefreshNonceRef = useRef(null);
+  const commentsRefreshLockRef = useRef(false);
+  const [isRefreshingComments, setIsRefreshingComments] = (
+    useState(false)
+  );
+
+  pendingCommentIdsRef.current = pendingCommentIds;
+  refreshSuccessRef.current = onCommentsRefreshSuccess;
+  refreshCompleteRef.current = onCommentsRefreshComplete;
 
   const postDetail = (
     postDetailState.visit === currentVisit
@@ -109,6 +129,7 @@ export default function PostDetailPage() {
         postRequest: undefined,
         commentRequest: undefined,
         commentRequestSequence: undefined,
+        commentPendingSnapshot: null,
       };
     }
 
@@ -203,6 +224,9 @@ export default function PostDetailPage() {
           initialization.commentRequest ===
           undefined
         ) {
+          initialization.commentPendingSnapshot = (
+            new Set(pendingCommentIdsRef.current)
+          );
           initialization.commentRequest = (
             getCommentList({
               postId,
@@ -223,10 +247,14 @@ export default function PostDetailPage() {
           initialization.commentRequestSequence ===
             commentRequestSequenceRef.current
         ) {
-          setCommentsState({
-            visit: currentVisit,
-            data: commentResult.data,
-          });
+          applyCommentsResult(
+            currentVisit,
+            commentResult.data,
+          );
+          refreshSuccessRef.current?.(
+            postId,
+            initialization.commentPendingSnapshot,
+          );
         }
       } catch (error) {
         if (
@@ -250,7 +278,9 @@ export default function PostDetailPage() {
     };
   }, [currentVisit, navigate, postId]);
 
-  async function reloadComments() {
+  async function reloadComments({
+    pendingSnapshot = null,
+  } = {}) {
     const requestVisit = currentVisit;
     const requestSequence = (
       ++commentRequestSequenceRef.current
@@ -287,20 +317,15 @@ export default function PostDetailPage() {
       return true;
     }
 
-    setCommentsState({
-      visit: requestVisit,
-      data: result.data,
-    });
+    applyCommentsResult(requestVisit, result.data);
+    refreshSuccessRef.current?.(
+      requestVisit.postId,
+      pendingSnapshot,
+    );
     return true;
   }
 
-  function increaseCommentCount() {
-    const requestVisit = currentVisit;
-
-    if (!isCurrentRequest(requestVisit)) {
-      return;
-    }
-
+  function applyCommentsResult(requestVisit, nextComments) {
     setPostDetailState((previous) => {
       if (
         previous.visit !== requestVisit ||
@@ -315,16 +340,81 @@ export default function PostDetailPage() {
           ...previous.data,
           meta: {
             ...(previous.data.meta || {}),
-            comments: (
-              (Number(
-                previous.data.meta?.comments,
-              ) || 0) + 1
-            ),
+            comments: Array.isArray(nextComments)
+              ? nextComments.length
+              : 0,
           },
         },
       };
     });
+
+    setCommentsState({
+      visit: requestVisit,
+      data: nextComments,
+    });
   }
+
+  async function refreshComments(pendingSnapshot) {
+    if (commentsRefreshLockRef.current) {
+      return false;
+    }
+
+    commentsRefreshLockRef.current = true;
+    const requestVisit = currentVisit;
+
+    if (isCurrentRequest(requestVisit)) {
+      setIsRefreshingComments(true);
+      setCurrentPageMessage("");
+    }
+
+    try {
+      return await reloadComments({
+        pendingSnapshot,
+      });
+    } catch (error) {
+      if (isCurrentRequest(requestVisit)) {
+        setCurrentPageMessage(
+          getRequestErrorMessage(error),
+        );
+      }
+
+      return false;
+    } finally {
+      commentsRefreshLockRef.current = false;
+
+      if (isCurrentRequest(requestVisit)) {
+        setIsRefreshingComments(false);
+      }
+    }
+  }
+
+  refreshCommentsRef.current = refreshComments;
+
+  useEffect(() => {
+    const refreshRequest = detailCommentsRefreshRequest;
+
+    if (
+      !refreshRequest ||
+      refreshRequest.postId !== Number(postId) ||
+      refreshRequest.nonce === handledRefreshNonceRef.current
+    ) {
+      return;
+    }
+
+    handledRefreshNonceRef.current = refreshRequest.nonce;
+
+    async function runRefresh() {
+      try {
+        await refreshCommentsRef.current?.(
+          new Set(refreshRequest.snapshot || []),
+        );
+      } finally {
+        refreshCompleteRef.current?.(refreshRequest.nonce);
+      }
+    }
+
+    void runRefresh();
+  }, [detailCommentsRefreshRequest, postId]);
 
   async function handleLike() {
     if (likeLockRef.current || !postDetail) {
@@ -453,6 +543,12 @@ export default function PostDetailPage() {
     }
   }
 
+  function handleRefreshComments() {
+    void refreshComments(
+      new Set(pendingCommentIdsRef.current),
+    );
+  }
+
   const isCurrentPostDetail = Boolean(
     postDetail &&
     String(postDetail.post?.postId ?? "") === postId,
@@ -493,8 +589,9 @@ export default function PostDetailPage() {
               }
               postId={postId}
               pageMessage={pageMessage}
-              onIncreaseCommentCount={
-                increaseCommentCount
+              pendingCommentCount={pendingCommentIds.size}
+              isRefreshingComments={
+                isRefreshingComments
               }
               isRequestCurrent={() => (
                 isCurrentRequest(currentVisit)
@@ -503,6 +600,9 @@ export default function PostDetailPage() {
                 setCurrentPageMessage
               }
               onReloadComments={reloadComments}
+              onRefreshComments={
+                handleRefreshComments
+              }
             />
           </>
         ) : (
