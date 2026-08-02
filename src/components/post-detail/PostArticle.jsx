@@ -5,7 +5,7 @@ import { formatCount, formatDateTime } from "../../utils/format.js";
 
 export default function PostArticle({
   postDetail,
-  currentUserNickname,
+  currentUserId,
   isLikePending,
   isDeletingPost,
   onLike,
@@ -17,7 +17,9 @@ export default function PostArticle({
   const post = postDetail.post || {};
   const meta = postDetail.meta || {};
   const isPostOwner = (
-    author.nickname === currentUserNickname
+    author.userId != null &&
+    currentUserId != null &&
+    String(author.userId) === String(currentUserId)
   );
   const isLiked = meta.liked === true;
 

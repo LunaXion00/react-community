@@ -42,9 +42,7 @@ export default function PostModifyPage() {
     loginUserRef.current = getLoginUser();
   }
 
-  const currentUserNickname = (
-    loginUserRef.current.nickname
-  );
+  const currentUserId = loginUserRef.current.userId;
   const [isPostLoaded, setIsPostLoaded] = useState(false);
   const [ modifyStatusMessage, setModifyStatusMessage ] = useState(INITIAL_MODIFY_STATUS_MESSAGE);
   const initializationRef = useRef({
@@ -130,9 +128,13 @@ export default function PostModifyPage() {
         const author = result.data?.author || {};
         const post = result.data?.post || {};
 
-        if (
-          author.nickname !== currentUserNickname
-        ) {
+        const isPostOwner = (
+          author.userId != null &&
+          currentUserId != null &&
+          String(author.userId) === String(currentUserId)
+        );
+
+        if (!isPostOwner) {
           window.alert(
             "게시글 작성자만 수정할 수 있습니다.",
           );
@@ -173,7 +175,7 @@ export default function PostModifyPage() {
     };
   }, [
     clearErrors,
-    currentUserNickname,
+    currentUserId,
     navigate,
     postId,
     reset,

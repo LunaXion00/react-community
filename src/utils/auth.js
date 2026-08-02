@@ -70,3 +70,8 @@ export function clearLoginUser() {
   localStorage.removeItem("nickname");
   localStorage.removeItem("profileImageUrl");
 }
+
+export function handleUnauthorized() {
+  clearLoginUser();
+  window.location.replace("/login");
+}

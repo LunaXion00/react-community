@@ -26,13 +26,15 @@ function isSameCommentId(leftId, rightId) {
 export default function CommentSection({
   comments,
   commentCount,
-  currentUserNickname,
+  currentUserId,
   postId,
   pageMessage,
-  onIncreaseCommentCount,
+  pendingCommentCount = 0,
+  isRefreshingComments = false,
   isRequestCurrent,
   onPageMessage,
   onReloadComments,
+  onRefreshComments,
 }) {
   const [ commentBody, setCommentBody ] = useState("");
   const [ activeReplyCommentId, setActiveReplyCommentId ] = useState(null);
@@ -127,11 +129,7 @@ export default function CommentSection({
       }
 
       setCommentBody("");
-      const didReload = await onReloadComments();
-
-      if (didReload !== false) {
-        onIncreaseCommentCount();
-      }
+      await onReloadComments();
     } catch (error) {
       if (isRequestCurrent()) {
         onPageMessage(
@@ -176,7 +174,6 @@ export default function CommentSection({
         return;
       }
 
-      onIncreaseCommentCount();
       replyForm.reset();
       setActiveReplyCommentId((currentId) => (
         isSameCommentId(
@@ -369,6 +366,17 @@ export default function CommentSection({
           </h2>
         </div>
 
+        {pendingCommentCount > 0 ? (
+          <button
+            className="realtime-refresh-button"
+            type="button"
+            disabled={isRefreshingComments}
+            onClick={onRefreshComments}
+          >
+            새 댓글 {pendingCommentCount}개 보기
+          </button>
+        ) : null}
+
         <div id="commentList">
           {comments === null ? null : (
             commentTree.length > 0 ? (
@@ -385,9 +393,7 @@ export default function CommentSection({
                     replyForm.isSubmitting
                   }
                   postId={postId}
-                  currentUserNickname={
-                    currentUserNickname
-                  }
+                  currentUserId={currentUserId}
                   isRequestCurrent={
                     isRequestCurrent
                   }

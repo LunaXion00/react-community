@@ -15,7 +15,7 @@ export default function CommentTreeItem({
   activeReplyCommentId,
   isReplyActionDisabled,
   postId,
-  currentUserNickname,
+  currentUserId,
   isRequestCurrent,
   onReloadComments,
   onPageMessage,
@@ -52,7 +52,7 @@ export default function CommentTreeItem({
         item={item}
         depth={depth}
         postId={postId}
-        currentUserNickname={currentUserNickname}
+        currentUserId={currentUserId}
         isRequestCurrent={isRequestCurrent}
         isReplyFormOpen={isReplyFormOpen}
         isReplyActionDisabled={
@@ -85,9 +85,7 @@ export default function CommentTreeItem({
             isReplyActionDisabled
           }
           postId={postId}
-          currentUserNickname={
-            currentUserNickname
-          }
+          currentUserId={currentUserId}
           isRequestCurrent={isRequestCurrent}
           onReloadComments={onReloadComments}
           onPageMessage={onPageMessage}

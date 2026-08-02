@@ -9,7 +9,7 @@ export default function CommentItem({
   item,
   depth = 0,
   postId,
-  currentUserNickname,
+  currentUserId,
   isRequestCurrent,
   isReplyFormOpen,
   isReplyActionDisabled,
@@ -26,7 +26,9 @@ export default function CommentItem({
   const saveLockRef = useRef(false);
   const deleteLockRef = useRef(false);
   const isOwner = (
-    author.nickname === currentUserNickname
+    author.userId != null &&
+    currentUserId != null &&
+    String(author.userId) === String(currentUserId)
   );
   const isDeleted = comment.deleted === true;
   const canModify = isOwner && !isDeleted;
