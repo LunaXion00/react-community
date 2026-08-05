@@ -10,7 +10,11 @@ import {
   connectRealtimeStream,
   updateRealtimeInterest,
 } from "../services/realtimeApi.js";
-import { getAccessToken, getLoginUser } from "../utils/auth.js";
+import {
+  AUTH_CHANGE_EVENT,
+  getAccessToken,
+  getLoginUser,
+} from "../utils/auth.js";
 
 const EMPTY_SET = new Set();
 
@@ -129,9 +133,11 @@ export default function useRealtime(pathname, search) {
     }
 
     window.addEventListener("storage", syncAuthSignature);
+    window.addEventListener(AUTH_CHANGE_EVENT, syncAuthSignature);
 
     return () => {
       window.removeEventListener("storage", syncAuthSignature);
+      window.removeEventListener(AUTH_CHANGE_EVENT, syncAuthSignature);
     };
   }, []);
 

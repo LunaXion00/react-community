@@ -3,7 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useForm } from "../hooks/useForm.js";
 import { login } from "../services/authApi.js";
-import { redirectIfLoggedIn } from "../utils/auth.js";
+import {
+  redirectIfLoggedIn,
+  saveLoginToken,
+} from "../utils/auth.js";
 import { validateEmail, validatePassword } from "../utils/validation.js";
 
 const emailRules = {
@@ -15,17 +18,7 @@ const passwordRules = {
 };
 
 function saveLoginUser(data) {
-  const {
-    grantType,
-    accessToken,
-  } = data.token;
-  localStorage.setItem(
-    "token",
-    JSON.stringify({
-      grantType,
-      accessToken,
-    }),
-  );
+  saveLoginToken(data.token);
   localStorage.setItem("userId", data.userId);
   localStorage.setItem("nickname", data.nickname);
 

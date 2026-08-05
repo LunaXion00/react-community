@@ -27,7 +27,7 @@
 ## 공통 기반
 
 - `src/apiClient.js`: JSON body·응답 파싱·Bearer header·HTTP 오류 생성. `auth: true` 401은 공통 인증 만료 처리를 호출한다.
-- `src/utils/auth.js`: `token` 파싱, access token/login user 조회, 로그인 필요 redirect, 로그인 사용자 정리, 인증 만료 이동.
+- `src/utils/auth.js`: `token` 파싱·저장, access token/login user 조회, 로그인 필요 redirect, 인증 만료 이동, refresh coordinator.
 - `src/hooks/useForm.js`: 비제어 form 등록·검증·submit lock·오류·값 설정·reset.
 - `src/components/Header.jsx`: 사용자 메뉴, 계정 페이지 이동, logout 후 인증 정보 정리.
 - `src/utils/format.js`: 날짜·수량 표시.
@@ -65,7 +65,9 @@
 - 사용자 storage keys는 `userId`, `nickname`, `profileImageUrl`이다.
 - `getToken()`은 호출마다 localStorage를 읽고 잘못된 JSON/구조를 제거한다. module cache는 없다.
 - `auth:false` login/signup 401은 각 페이지 helper/error 흐름을 유지한다.
-- 인증 요청 401은 `clearLoginUser()` 후 `window.location.replace("/login")`; 403은 자동 logout하지 않는다.
+- 인증 요청 401 중 `access_token_expired`는 단일 refresh 후 원 요청을 한 번 재시도한다. invalid/unauthorized와 refresh missing/invalid는 정리 후 `/login`으로 이동한다.
+- `session_unavailable`, network, 403은 자동 logout하지 않는다. refresh token은 JS/localStorage가 아닌 HttpOnly cookie다.
+- token 저장·삭제는 `community-auth-change` custom event를 발행해 같은 탭 realtime도 감지한다.
 - 게시글·댓글 소유자 판정은 `author.userId`와 local userId가 둘 다 있을 때 `String` 비교한다. nickname fallback은 없고 nickname은 표시용이다.
 - 실제 수정·삭제 권한은 backend가 최종 검증한다.
 
