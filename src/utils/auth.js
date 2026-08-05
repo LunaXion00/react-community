@@ -15,9 +15,7 @@ export function getToken() {
       typeof token.grantType !== "string" ||
       !token.grantType ||
       typeof token.accessToken !== "string" ||
-      !token.accessToken ||
-      typeof token.refreshToken !== "string" ||
-      !token.refreshToken
+      !token.accessToken
     ) {
       localStorage.removeItem("token");
       return null;
