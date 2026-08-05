@@ -16,7 +16,6 @@ import {
   getAccessToken,
   getLoginUser,
 } from "../utils/auth.js";
-import { logout } from "../services/authApi.js";
 
 const EMPTY_SET = new Set();
 
@@ -426,17 +425,8 @@ export default function useRealtime(pathname, search) {
 
         const currentAccessToken = getAccessToken();
 
-        if (
-          currentAccessToken &&
-          currentAccessToken !== streamAccessToken
-        ) {
+        if (currentAccessToken !== streamAccessToken) {
           return;
-        }
-
-        try {
-          await logout();
-        } catch {
-          // Best effort logout; local session still ends below.
         }
 
         clearLoginUser();
