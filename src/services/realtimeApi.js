@@ -104,13 +104,13 @@ export async function connectRealtimeStream({
           allowRefresh: false,
         });
       } catch (refreshError) {
-        handleAuthFailure(refreshError.message);
+        handleAuthFailure(refreshError.message, accessToken);
         throw refreshError;
       }
     }
 
     if (response.status === 401) {
-      handleAuthFailure(error.message);
+      handleAuthFailure(error.message, accessToken);
     }
 
     throw error;

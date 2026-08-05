@@ -65,7 +65,7 @@
 - 사용자 storage keys는 `userId`, `nickname`, `profileImageUrl`이다.
 - `getToken()`은 호출마다 localStorage를 읽고 잘못된 JSON/구조를 제거한다. module cache는 없다.
 - `auth:false` login/signup 401은 각 페이지 helper/error 흐름을 유지한다.
-- 인증 요청 401 중 `access_token_expired`는 단일 refresh 후 원 요청을 한 번 재시도한다. invalid/unauthorized와 refresh missing/invalid는 정리 후 `/login`으로 이동한다.
+- 인증 요청 401 중 `access_token_expired`는 단일 refresh 후 원 요청을 한 번 재시도한다. refresh 전후 현재 token이 바뀌면 최신 token을 보존하고 이전 refresh 결과를 저장하지 않는다. invalid/unauthorized와 refresh missing/invalid는 현재 요청 token과 localStorage token이 같을 때만 정리 후 `/login`으로 이동하며 stale 응답은 무시한다.
 - `session_unavailable`, network, 403은 자동 logout하지 않는다. refresh token은 JS/localStorage가 아닌 HttpOnly cookie다.
 - token 저장·삭제는 `community-auth-change` custom event를 발행해 같은 탭 realtime도 감지한다.
 - 게시글·댓글 소유자 판정은 `author.userId`와 local userId가 둘 다 있을 때 `String` 비교한다. nickname fallback은 없고 nickname은 표시용이다.
@@ -78,8 +78,8 @@
 - `src/services/realtimeApi.js`는 `Authorization: Bearer`, `Accept: text/event-stream`, split chunk/CRLF/multiline data/comment 처리를 담당한다.
 - 새 connection마다 현재 interest와 단조 증가 frontend revision을 PATCH한다. interest 등록 실패는 해당 stream 종료·재연결 경로를 사용한다.
 - SSE 401 `access_token_expired`는 refresh coordinator를 한 번 공유하고 stream 연결을 한 번 재시도한다. invalid/unauthorized와 refresh missing/invalid는 공통 인증 종료를 사용한다.
-- `session-replaced`는 현재 stream에서만 reconnect를 막고 abort한다. alert 확인 후 token이 그대로면 best-effort logout·정리·`/login` 이동을 수행한다. alert 대기 중 다른 token이 저장되면 새 session을 보존하고 stream만 종료한다.
-- stream event에는 연결 당시 token을 붙여 stale stream이 현재 token과 다르면 popup·logout·storage clear 없이 해당 stream만 종료한다.
+- `session-replaced`는 현재 stream에서만 reconnect를 막고 abort한다. alert 확인 후 token이 그대로면 저장정보를 정리하고 `/login`으로 이동한다. alert 대기 중 다른 token이 저장되면 새 session을 보존하고 stream만 종료한다. logout API는 호출하지 않는다.
+- stream event와 stream HTTP 401에는 연결 당시 token을 사용한다. stale stream이 현재 token과 다르면 popup·logout·storage clear 없이 해당 stream만 종료한다.
 - `post-created`는 `Set<postId>`, `comment-created`는 `Map<postId, Set<commentId>>`로 중복 제거한다. payload는 invalidation hint다.
 - 목록·댓글 버튼은 기존 REST service 재조회만 실행한다. 시작 snapshot ID만 성공 후 제거하고 요청 중 도착한 ID는 유지한다.
 - 재연결 후 현재 목록 또는 댓글을 한 번 REST 동기화한다. `App.jsx`는 hook 결과와 page props 연결만 담당한다.

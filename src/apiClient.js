@@ -95,7 +95,10 @@ async function requestWithRetry(
       try {
         await refreshAccessToken(token?.accessToken || null);
       } catch (refreshError) {
-        handleAuthFailure(refreshError.message);
+        handleAuthFailure(
+          refreshError.message,
+          token?.accessToken || null,
+        );
         throw refreshError;
       }
 
@@ -112,7 +115,10 @@ async function requestWithRetry(
     }
 
     if (auth && response.status === 401) {
-      handleAuthFailure(error.message);
+      handleAuthFailure(
+        error.message,
+        token?.accessToken || null,
+      );
     }
 
     throw error;

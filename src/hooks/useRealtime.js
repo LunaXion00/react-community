@@ -478,7 +478,11 @@ export default function useRealtime(pathname, search) {
           },
         });
       } catch (error) {
-        if (isAuthError(error)) {
+        if (
+          isAuthError(error) &&
+          isActive() &&
+          getAccessToken() === accessToken
+        ) {
           authFailureRef.current = true;
         }
 

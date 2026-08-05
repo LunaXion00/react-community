@@ -112,8 +112,15 @@ export function handleUnauthorized() {
   window.location.replace("/login");
 }
 
-export function handleAuthFailure(message) {
+export function handleAuthFailure(message, expectedAccessToken) {
   if (!TERMINAL_AUTH_MESSAGES.has(message)) {
+    return false;
+  }
+
+  if (
+    expectedAccessToken !== undefined &&
+    getAccessToken() !== expectedAccessToken
+  ) {
     return false;
   }
 
@@ -137,7 +144,33 @@ async function refreshTokenAfterLock(failedAccessToken) {
   }
 
   const { refresh } = await import("../services/authApi.js");
-  const result = await refresh();
+  let result;
+
+  try {
+    result = await refresh();
+  } catch (error) {
+    const latestAccessToken = getAccessToken();
+
+    if (
+      latestAccessToken &&
+      latestAccessToken !== failedAccessToken
+    ) {
+      return latestAccessToken;
+    }
+
+    throw error;
+  }
+
+  const latestAccessToken = getAccessToken();
+
+  if (!latestAccessToken) {
+    throw createAuthError("unauthorized_user");
+  }
+
+  if (latestAccessToken !== failedAccessToken) {
+    return latestAccessToken;
+  }
+
   const nextToken = result?.data;
 
   if (
