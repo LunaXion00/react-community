@@ -1,22 +1,31 @@
 import { request } from "../apiClient.js";
 import {
   getAccessToken,
-  handleUnauthorized,
+  handleAuthFailure,
+  refreshAccessToken,
 } from "../utils/auth.js";
 
 const EVENT_NAMES = new Set([
   "connected",
   "post-created",
   "comment-created",
+  "session-replaced",
 ]);
 
-function createHttpError(status) {
-  const error = new Error(`실시간 연결 실패 (${status})`);
+function createHttpError(status, message) {
+  const error = new Error(
+    message || `실시간 연결 실패 (${status})`,
+  );
   error.status = status;
   return error;
 }
 
-function parseEvent(eventName, dataLines, onEvent) {
+function parseEvent(
+  eventName,
+  dataLines,
+  onEvent,
+  streamAccessToken,
+) {
   if (!EVENT_NAMES.has(eventName) || dataLines.length === 0) {
     return;
   }
@@ -33,13 +42,39 @@ function parseEvent(eventName, dataLines, onEvent) {
   onEvent({
     event: eventName,
     data,
+    streamAccessToken,
   });
+}
+
+async function getResponseError(response) {
+  const responseBody = await response.text();
+  let errorData = null;
+
+  if (responseBody) {
+    try {
+      errorData = JSON.parse(responseBody);
+    } catch {
+      errorData = null;
+    }
+  }
+
+  const message = (
+    errorData !== null &&
+    typeof errorData === "object" &&
+    typeof errorData.message === "string" &&
+    errorData.message
+  )
+    ? errorData.message
+    : undefined;
+
+  return createHttpError(response.status, message);
 }
 
 export async function connectRealtimeStream({
   accessToken = getAccessToken(),
   signal,
   onEvent,
+  allowRefresh = true,
 }) {
   const response = await fetch("/api/realtime/stream", {
     headers: {
@@ -49,12 +84,36 @@ export async function connectRealtimeStream({
     signal,
   });
 
-  if (response.status === 401) {
-    handleUnauthorized();
-  }
-
   if (!response.ok) {
-    throw createHttpError(response.status);
+    const error = await getResponseError(response);
+
+    if (
+      response.status === 401 &&
+      error.message === "access_token_expired" &&
+      allowRefresh
+    ) {
+      try {
+        const nextAccessToken = await refreshAccessToken(
+          accessToken,
+        );
+
+        return connectRealtimeStream({
+          accessToken: nextAccessToken,
+          signal,
+          onEvent,
+          allowRefresh: false,
+        });
+      } catch (refreshError) {
+        handleAuthFailure(refreshError.message);
+        throw refreshError;
+      }
+    }
+
+    if (response.status === 401) {
+      handleAuthFailure(error.message);
+    }
+
+    throw error;
   }
 
   if (!response.body) {
@@ -74,7 +133,12 @@ export async function connectRealtimeStream({
 
   function processLine(line) {
     if (line === "") {
-      parseEvent(eventName, dataLines, onEvent);
+      parseEvent(
+        eventName,
+        dataLines,
+        onEvent,
+        accessToken,
+      );
       resetEvent();
       return;
     }
