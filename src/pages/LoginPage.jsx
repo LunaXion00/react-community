@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useForm } from "../hooks/useForm.js";
-import { login } from "../services/userApi.js";
-import { redirectIfLoggedIn } from "../utils/auth.js";
+import { login } from "../services/authApi.js";
+import {
+  redirectIfLoggedIn,
+  saveLoginToken,
+} from "../utils/auth.js";
 import { validateEmail, validatePassword } from "../utils/validation.js";
 
 const emailRules = {
@@ -15,10 +18,7 @@ const passwordRules = {
 };
 
 function saveLoginUser(data) {
-  localStorage.setItem(
-    "token",
-    JSON.stringify(data.token),
-  );
+  saveLoginToken(data.token);
   localStorage.setItem("userId", data.userId);
   localStorage.setItem("nickname", data.nickname);
 

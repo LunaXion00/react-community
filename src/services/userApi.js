@@ -20,26 +20,6 @@ export async function signup({
   });
 }
 
-export async function login({
-  email,
-  password,
-}) {
-  return request("/api/users/login", {
-    method: "POST",
-    body: {
-      email,
-      password,
-    },
-    auth: false,
-  });
-}
-
-export async function logout() {
-  return request("/api/users/logout", {
-    method: "POST",
-  });
-}
-
 export async function modifyInfo({
   userId,
   nickname,

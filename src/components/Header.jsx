@@ -8,7 +8,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { logout } from "../services/userApi.js";
+import { logout } from "../services/authApi.js";
 import {
   clearLoginUser,
   getAccessToken,

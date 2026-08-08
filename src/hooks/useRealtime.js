@@ -10,7 +10,12 @@ import {
   connectRealtimeStream,
   updateRealtimeInterest,
 } from "../services/realtimeApi.js";
-import { getAccessToken, getLoginUser } from "../utils/auth.js";
+import {
+  AUTH_CHANGE_EVENT,
+  clearLoginUser,
+  getAccessToken,
+  getLoginUser,
+} from "../utils/auth.js";
 
 const EMPTY_SET = new Set();
 
@@ -113,6 +118,7 @@ export default function useRealtime(pathname, search) {
   const revisionRef = useRef(0);
   const generationRef = useRef(0);
   const authFailureRef = useRef(false);
+  const sessionReplacedRef = useRef(false);
 
   pendingPostIdsRef.current = pendingPostIds;
   pendingCommentIdsRef.current = pendingCommentIds;
@@ -129,9 +135,11 @@ export default function useRealtime(pathname, search) {
     }
 
     window.addEventListener("storage", syncAuthSignature);
+    window.addEventListener(AUTH_CHANGE_EVENT, syncAuthSignature);
 
     return () => {
       window.removeEventListener("storage", syncAuthSignature);
+      window.removeEventListener(AUTH_CHANGE_EVENT, syncAuthSignature);
     };
   }, []);
 
@@ -304,6 +312,7 @@ export default function useRealtime(pathname, search) {
     let reconnectTimer;
     let hasConnected = false;
     authFailureRef.current = false;
+    sessionReplacedRef.current = false;
 
     function isActive() {
       return (
@@ -403,12 +412,48 @@ export default function useRealtime(pathname, search) {
       streamControllerRef.current = controller;
       let shouldReconnect = true;
 
+      async function handleSessionReplaced(streamAccessToken) {
+        if (sessionReplacedRef.current) {
+          return;
+        }
+
+        sessionReplacedRef.current = true;
+        authFailureRef.current = true;
+        shouldReconnect = false;
+        controller.abort();
+        alert("다른 환경에서 로그인하였습니다.");
+
+        const currentAccessToken = getAccessToken();
+
+        if (currentAccessToken !== streamAccessToken) {
+          return;
+        }
+
+        clearLoginUser();
+        window.location.replace("/login");
+      }
+
       try {
         await connectRealtimeStream({
           accessToken,
           signal: controller.signal,
           onEvent: (event) => {
             if (!isActive()) {
+              return;
+            }
+
+            const streamAccessToken = (
+              event.streamAccessToken || accessToken
+            );
+
+            if (getAccessToken() !== streamAccessToken) {
+              shouldReconnect = false;
+              controller.abort();
+              return;
+            }
+
+            if (event.event === "session-replaced") {
+              void handleSessionReplaced(streamAccessToken);
               return;
             }
 
@@ -433,7 +478,11 @@ export default function useRealtime(pathname, search) {
           },
         });
       } catch (error) {
-        if (isAuthError(error)) {
+        if (
+          isAuthError(error) &&
+          isActive() &&
+          getAccessToken() === accessToken
+        ) {
           authFailureRef.current = true;
         }
 

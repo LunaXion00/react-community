@@ -1,9 +1,46 @@
 import {
   getToken,
-  handleUnauthorized,
+  handleAuthFailure,
+  refreshAccessToken,
 } from "./utils/auth.js";
 
-export async function request(
+function parseError(responseBody, status) {
+  let errorData = null;
+
+  if (responseBody) {
+    try {
+      errorData = JSON.parse(responseBody);
+    } catch {
+      errorData = null;
+    }
+  }
+
+  const hasErrorMessage = (
+    errorData !== null &&
+    typeof errorData === "object" &&
+    typeof errorData.message === "string" &&
+    errorData.message
+  );
+  const error = new Error(
+    hasErrorMessage
+      ? errorData.message
+      : `API 요청 실패 : ${status}`,
+  );
+
+  error.status = status;
+  error.data = (
+    errorData !== null &&
+    typeof errorData === "object" &&
+    "data" in errorData
+  )
+    ? errorData.data
+    : null;
+  error.body = responseBody;
+
+  return error;
+}
+
+async function requestWithRetry(
   endpoint,
   {
     method = "GET",
@@ -11,6 +48,7 @@ export async function request(
     headers = {},
     auth = true,
   } = {},
+  canRefresh = true,
 ) {
   const requestHeaders = {};
   const token = getToken();
@@ -43,40 +81,44 @@ export async function request(
   const responseBody = await response.text();
 
   if (!response.ok) {
-    let errorData = null;
+    const error = parseError(
+      responseBody,
+      response.status,
+    );
 
-    if (responseBody) {
+    if (
+      auth &&
+      response.status === 401 &&
+      error.message === "access_token_expired" &&
+      canRefresh
+    ) {
       try {
-        errorData = JSON.parse(responseBody);
-      } catch {
-        errorData = null;
+        await refreshAccessToken(token?.accessToken || null);
+      } catch (refreshError) {
+        handleAuthFailure(
+          refreshError.message,
+          token?.accessToken || null,
+        );
+        throw refreshError;
       }
+
+      return requestWithRetry(
+        endpoint,
+        {
+          method,
+          body,
+          headers,
+          auth,
+        },
+        false,
+      );
     }
 
-    const hasErrorMessage = (
-      errorData !== null &&
-      typeof errorData === "object" &&
-      typeof errorData.message === "string" &&
-      errorData.message
-    );
-    const error = new Error(
-      hasErrorMessage
-        ? errorData.message
-        : `API 요청 실패 : ${response.status}`,
-    );
-
-    error.status = response.status;
-    error.data = (
-      errorData !== null &&
-      typeof errorData === "object" &&
-      "data" in errorData
-    )
-      ? errorData.data
-      : null;
-    error.body = responseBody;
-
     if (auth && response.status === 401) {
-      handleUnauthorized();
+      handleAuthFailure(
+        error.message,
+        token?.accessToken || null,
+      );
     }
 
     throw error;
@@ -91,4 +133,8 @@ export async function request(
   } catch {
     return responseBody;
   }
+}
+
+export function request(endpoint, options = {}) {
+  return requestWithRetry(endpoint, options);
 }
