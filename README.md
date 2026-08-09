@@ -15,6 +15,48 @@ Vanilla JavaScript 커뮤니티 프론트엔드를 React로 마이그레이션�
 - SSE 기반 새 게시글·댓글 알림
 - 중복 로그인 감지와 기존 세션 안내
 
+## 화면 미리보기
+
+현재 React 프론트엔드에서 확인할 수 있는 주요 화면입니다.
+
+### 인증
+
+<p>
+  <img src="docs/images/login.png" alt="로그인 화면" width="480" />
+  <img src="docs/images/signup.png" alt="회원가입 화면" width="480" />
+</p>
+
+### 게시글
+
+<p>
+  <img src="docs/images/postlist.png" alt="게시글 목록 화면" width="480" />
+  <img src="docs/images/writepost.png" alt="게시글 작성 화면" width="480" />
+  <img src="docs/images/draftfound.png" alt="임시저장 글 확인 화면" width="480" />
+  <img src="docs/images/postdetail.png" alt="게시글 상세 화면" width="480" />
+</p>
+
+### 댓글
+
+<p>
+  <img src="docs/images/uploadcomment.png" alt="댓글 작성 화면" width="480" />
+  <img src="docs/images/deletecomment.png" alt="댓글 삭제 화면" width="480" />
+</p>
+
+### 실시간 알림·세션
+
+<p>
+  <img src="docs/images/postevent.png" alt="새 게시글 알림 화면" width="480" />
+  <img src="docs/images/commentevent.png" alt="새 댓글 알림 화면" width="480" />
+  <img src="docs/images/duplicatelogin.png" alt="다른 환경 로그인 안내 화면" width="480" />
+</p>
+
+### 계정 관리
+
+<p>
+  <img src="docs/images/infomodify.png" alt="회원정보 수정 화면" width="480" />
+  <img src="docs/images/pwmodify.png" alt="비밀번호 수정 화면" width="480" />
+</p>
+
 ## 개발 방식
 
 코드를 먼저 작성하기보다, 학습한 React·브라우저·HTTP 지식을 바탕으로 요구사항과 사용자 흐름을 먼저 정리한 뒤 AI를 활용해 구현했습니다.
